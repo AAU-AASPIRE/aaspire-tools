@@ -18,7 +18,9 @@ STD = {
     "IX": "eclipse4diac::io::IX",
     "QX": "eclipse4diac::io::QX",
     "IW": "eclipse4diac::io::IW",
+    "QW": "eclipse4diac::io::QW",
     "GPIOChip": "eclipse4diac::io::gpiochip::GPIOChip",
+    "PWMChip": "eclipse4diac::io::pwmsysfs::PWMChip",
     "CLIENT_1_0": "iec61499::net::CLIENT_1_0",
     "CLIENT_0_1": "iec61499::net::CLIENT_0_1",
     "EMB_RES": "iec61499::system::EMB_RES",
@@ -51,7 +53,7 @@ def keep_layout(root, path):
         def walk(node, prefix):
             for child in node:
                 name = child.get("Name")
-                if child.tag in ("FB", "SubApp", "ECState") and name:
+                if child.tag in ("FB", "SubApp", "ECState", "Group") and name:
                     found[(child.tag, prefix + name)] = child
                     walk(child, prefix + name + ".")
                 elif child.tag == "Connection":
@@ -145,8 +147,11 @@ def subapp(net, name, x, y, comment, ei, eo, iv=None, ov=None):
 class Project:
     """One generated 4diac project: type library, system and manifest."""
 
-    def __init__(self, root: Path, name: str, symbolic: str, comment: str, date: str = "2026-09-28"):
+    def __init__(self, root: Path, name: str, symbolic: str, comment: str, date: str = "2026-09-28",
+                 external: frozenset[str] = frozenset()):
         self.root, self.name, self.symbolic, self.comment, self.date = Path(root), name, symbolic, comment, date
+        # Packages whose types are declared here but compiled in another project's export (the library).
+        self.external = external
         self.types = self.root / "Type Library"
         self.manifest: list[tuple[str, str, str, bool]] = []  # (qualified name, kind, file, exported to C++)
         self.generic: set[tuple[str, int, int]] = set()      # (kind, sds, rds)
@@ -289,7 +294,7 @@ class TypeFile:
         """Write the file and record it in the manifest; return the qualified name."""
         rel = Path(self.folder) / (self.name + self.ext)
         save(self.root, self.project.types / rel)
-        self.project.record(self.qualified, self.kind, rel, self.exported)
+        self.project.record(self.qualified, self.kind, rel, self.exported and self.package not in self.project.external)
         return self.qualified
 
 
@@ -401,6 +406,6 @@ class Composite(FB):
     def write(self):
         """Emit the network, then write the file."""
         for i, (name, typ, params) in enumerate(self.fbs):
-            fb(self.net, name, typ, 400 + i * 2600, 200, **params)  # one row: no overlapping blocks
+            fb(self.net, name, typ, 400 + i * 3600, 200, **params)  # one row: no overlapping blocks
         connections(self.net, self.events, self.data)
         return super().write()
