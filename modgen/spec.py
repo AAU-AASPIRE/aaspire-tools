@@ -148,7 +148,7 @@ class Equipment(Model):
     outputs: dict[str, Output] = Field(default_factory=dict)
     # Command name -> phases; the first command is the safe state (all off).
     commands: dict[str, list[Phase]]
-    sim: dict = Field(default_factory=dict)   # kinematics for 4diac/tools/module_sim.py (not used by the generator)
+    sim: dict = Field(default_factory=dict)   # kinematics for cell/sim/module_sim.py (not used by the generator)
 
     short_commands = field_validator("commands", mode="before")(
         classmethod(lambda cls, v: {k: phases(c) for k, c in v.items()}))
@@ -311,10 +311,10 @@ class Target(Model):
     """
     host: str = "localhost"
     port: int = 61499                    # FORTE management port
-    user: str | None = None              # SSH login (4diac/tools/pi.py)
+    user: str | None = None              # SSH login (deploy/pi.py)
     io: Literal["modbus", "gpio"] = "modbus"
     modbus: Modbus | None = None         # default: the module's Modbus server
-    # Where FORTE finds the PWM channels; FORTE in Docker (4diac/tools/pi/compose.yaml) sees the
+    # Where FORTE finds the PWM channels; FORTE in Docker (deploy/pi/compose.yaml) sees the
     # host's /sys/class/pwm at /hostsys/class/pwm.
     pwm_root: str = "/sys/class/pwm"
 
@@ -335,7 +335,7 @@ class Aas(Model):
 class ModuleSpec(Model):
     """One module: equipment, skill primitives, module level skills and procedures."""
     module: str = Ident
-    project: str = Ident                 # 4diac project folder under 4diac/
+    project: str = Ident                 # 4diac project folder under cell/control/
     package: str = Ident                 # 4diac package of the module's own types
     opcua_root: str = Field(pattern=r"^(/[A-Za-z][A-Za-z0-9_]*)+$")
     modbus: Modbus = Modbus()

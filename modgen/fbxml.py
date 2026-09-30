@@ -27,7 +27,7 @@ STD = {
     "FORTE_PC": "iec61499::system::FORTE_PC",
 }
 # Interface declarations of standard types, vendored from the 4diac IDE 3.3 type libraries.
-STDTYPES = Path(__file__).resolve().parents[1] / "4diac" / "tools" / "stdtypes"
+STDTYPES = Path(__file__).resolve().parents[1] / "stdtypes"
 NET = "iec61499::net"
 
 

@@ -12,7 +12,7 @@ import pytest
 from iec61499_mgmt.bootfile import boot_file, deployment
 from iec61499_mgmt.protocol import ManagementError, Response
 from iec61499_mgmt.sysfile import load_application
-from modgen import load, specs
+from modgen import SPECS, load, specs, system_file
 from modgen.library import STATES
 from modgen.module import app_name
 from modsync import aas, sync
@@ -20,8 +20,7 @@ from modsync.compare import Candidate, expected, expected_values, same
 from modsync.device import literal
 from modsync.sync import MODULE_STATE, OCCUPIED, Refused, candidates, inspect, push, watch
 
-ROOT = Path(__file__).resolve().parents[1]
-FILLING = ROOT / "modules" / "filling.yaml"
+FILLING = SPECS / "filling.yaml"
 
 
 def response(**kw):
@@ -96,7 +95,7 @@ def status(forte, cands=None):
 def test_the_compared_program_is_what_the_projects_deploy(path):
     spec = load(path)
     for target in spec.targets:
-        sys_app = load_application(ROOT / "4diac" / spec.project / f"{spec.project}.sys", app_name(spec, target))
+        sys_app = load_application(system_file(spec.project), app_name(spec, target))
         app = expected(spec, target)
         assert (sys_app.fbs, sys_app.parameters) == (app.fbs, app.parameters)
         assert set(sys_app.event_connections + sys_app.data_connections) == set(app.event_connections + app.data_connections)
@@ -184,7 +183,7 @@ def read_back(store, tmp_path):
 
 def test_aas_from_the_spec(tmp_path):
     spec = load(FILLING)
-    objects = read_back(aas.build(spec, "pi", spec_path="modules/filling.yaml"), tmp_path)
+    objects = read_back(aas.build(spec, "pi", spec_path="cell/modules/filling.yaml"), tmp_path)
     shell = objects["FillingModuleAAS"]
     assert shell.id == "https://smartproductionlab.aau.dk/aas/FillingModuleAAS"
     assert len(shell.submodel) == 4

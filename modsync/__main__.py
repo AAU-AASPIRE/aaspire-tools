@@ -1,11 +1,11 @@
 """python -m modsync: keep modules, their specs and their AAS in step.
 
-    python -m modsync describe modules/filling.yaml --target pi   # AAS from the spec alone (no module needed)
-    python -m modsync pull --spec modules/filling.yaml --target pi   # read the module, report drift, write its AAS
-    python -m modsync pull --host 192.168.0.191                      # which module is this? (tries every spec)
-    python -m modsync push modules/filling.yaml --target pi --dry-run   # what would change on the module
-    python -m modsync push modules/filling.yaml --target pi           # bring the module to its spec
-    python -m modsync watch                                           # pull whenever a module comes online or changes
+    python -m modsync describe cell/modules/filling.yaml --target pi   # AAS from the spec alone (no module needed)
+    python -m modsync pull --spec cell/modules/filling.yaml --target pi   # read the module, report drift, write its AAS
+    python -m modsync pull --host 192.168.0.191                           # which module is this? (tries every spec)
+    python -m modsync push cell/modules/filling.yaml --target pi --dry-run   # what would change on the module
+    python -m modsync push cell/modules/filling.yaml --target pi           # bring the module to its spec
+    python -m modsync watch                                                # pull whenever a module comes online or changes
 
 The AAS goes to aas/<idShort>.json; --basyx http://<host>:8081 also uploads it to an AAS server.
 """

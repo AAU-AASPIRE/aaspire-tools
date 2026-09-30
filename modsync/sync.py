@@ -26,7 +26,8 @@ from modgen.library import STATES
 from .compare import Candidate, Drift, closest, compare, expected_values, parameters
 from .device import Snapshot, read_structure, read_values
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]              # the repository (paths in reports are relative to it)
+PI_TOOL = ROOT / "deploy" / "pi.py"
 # Library internals read for the guard: the state manager's and the occupation's logic FBs.
 MODULE_STATE, OCCUPIED = "Module.Logic.State", "Occupation.Logic.Occupied"
 # The module's name as deployed: every generated module has this parameter.
@@ -103,10 +104,10 @@ def fingerprint(status: Status) -> str:
 # Deployment ------------------------------------------------------------------------------------
 
 class PiDeployer:
-    """Boot file on a Raspberry Pi with FORTE in its container (4diac/tools/pi.py install)."""
+    """Boot file on a Raspberry Pi with FORTE in its container (deploy/pi.py install)."""
 
     def __init__(self, host: str, user: str, port: int = 61499):
-        spec = importlib.util.spec_from_file_location("pi_tool", ROOT / "4diac" / "tools" / "pi.py")
+        spec = importlib.util.spec_from_file_location("pi_tool", PI_TOOL)
         self.pi = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(self.pi)
         self.args = type("Args", (), {"host": host, "user": user, "port": port})()

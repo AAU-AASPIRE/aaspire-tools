@@ -6,11 +6,11 @@ import pytest
 import yaml
 
 from iec61499_mgmt.sysfile import load_application
-from modgen import LIBRARY_PROJECT, generate, generate_library, load, specs
+from modgen import (LIBRARY_PROJECT, SPECS, generate, generate_library, load, manifest_path, project_dir, specs,
+                    system_file)
 from modgen.spec import ModuleSpec
 
-ROOT = Path(__file__).resolve().parents[1]
-FILLER = ROOT / "modules" / "filler.yaml"
+FILLER = SPECS / "filler.yaml"
 
 
 def raw(path=FILLER):
@@ -50,7 +50,7 @@ def test_invalid_specs_are_rejected(mutate, message):
 
 
 def test_repeated_steps_get_their_own_instance_names():
-    spec = load(ROOT / "modules" / "stoppering.yaml")
+    spec = load(SPECS / "stoppering.yaml")
     assert [s.name for s in spec.composites["Stoppering"].execute] == [
         "LowerPiston", "ArmIn", "ArmOut", "ExtendPlunger", "RetractPlunger", "RaisePiston"]
     data = raw()
@@ -84,23 +84,19 @@ def tree(root):
 
 
 def committed(project):
-    return ROOT / "4diac" / project, ROOT / "4diac" / "tools" / "manifests" / f"{project}.json"
+    return project_dir(project), manifest_path(project)
 
 
 @pytest.mark.parametrize("spec_path", specs(), ids=lambda p: p.stem)
 def test_committed_module_projects_match_the_generator(tmp_path, spec_path):
     spec = load(spec_path)
-    generate(spec, tmp_path / spec.project, tmp_path / "manifest.json")
-    project, manifest = committed(spec.project)
-    assert tree(tmp_path / spec.project) == tree(project)
-    assert (tmp_path / "manifest.json").read_bytes() == manifest.read_bytes()
+    generate(spec, tmp_path / spec.project)       # the type manifest is part of the project
+    assert tree(tmp_path / spec.project) == tree(committed(spec.project)[0])
 
 
 def test_committed_library_project_matches_the_generator(tmp_path):
-    generate_library(tmp_path / LIBRARY_PROJECT, tmp_path / "manifest.json")
-    project, manifest = committed(LIBRARY_PROJECT)
-    assert tree(tmp_path / LIBRARY_PROJECT) == tree(project)
-    assert (tmp_path / "manifest.json").read_bytes() == manifest.read_bytes()
+    generate_library(tmp_path / LIBRARY_PROJECT)
+    assert tree(tmp_path / LIBRARY_PROJECT) == tree(committed(LIBRARY_PROJECT)[0])
 
 
 def test_library_types_are_compiled_once():
@@ -116,7 +112,7 @@ def test_library_types_are_compiled_once():
 
 
 def flat(project, app):
-    commands = load_application(ROOT / "4diac" / project / f"{project}.sys", app).commands("RES")
+    commands = load_application(system_file(project), app).commands("RES")
     return ({c.name: c.type for c in commands if c.op == "create_fb"},
             {(c.source, c.destination) for c in commands if c.op == "connect"},
             {c.destination: c.value for c in commands if c.op == "write"})
@@ -163,7 +159,7 @@ def test_stoppering_binds_constants_per_instance():
 
 
 def st(project, folder, name):
-    root = ET.parse(ROOT / "4diac" / project / "Type Library" / folder / f"{name}.fbt").getroot()
+    root = ET.parse(project_dir(project) / "Type Library" / folder / f"{name}.fbt").getroot()
     return root, "\n".join(s.text or "" for s in root.iter("ST"))
 
 
@@ -196,7 +192,7 @@ def test_equipment_runs_command_phases():
 @pytest.mark.parametrize("project", [LIBRARY_PROJECT, *[load(p).project for p in specs()]])
 def test_projects_follow_the_ide_conventions(project):
     """What the IDE's system editor needs, which its headless checks did not catch."""
-    folder = ROOT / "4diac" / project
+    folder = project_dir(project)
     assert not (folder / ".buildpath").exists()          # else the root .sys is outside the type library
     system = ET.parse(folder / f"{project}.sys").getroot()
     for sub in system.iter("SubApp"):
@@ -207,7 +203,7 @@ def test_projects_follow_the_ide_conventions(project):
 
 
 def test_filler_maps_one_application_per_target():
-    system = ET.parse(ROOT / "4diac" / "FillerModule" / "FillerModule.sys").getroot()
+    system = ET.parse(system_file("FillerModule")).getroot()
     mappings = {(m.get("From").split(".")[0], m.get("To")) for m in system.iter("Mapping")}
     assert mappings == {("Filler", "FORTE_PC.RES"), ("Filler_pi", "FORTE_PI.RES")}
 
@@ -248,7 +244,7 @@ def test_regeneration_keeps_layout_arranged_in_the_ide(tmp_path):
 def test_application_is_grouped_and_init_chains_are_hidden():
     """Five groups, top to bottom (module level, module level skills, procedures, skill primitives, equipment IO);
     every block of the application in one of them; INIT and start-up connections hidden."""
-    system = ET.parse(ROOT / "4diac" / "FillingModule" / "FillingModule.sys").getroot()
+    system = ET.parse(system_file("FillingModule")).getroot()
     net = next(a for a in system.iter("Application") if a.get("Name") == "Filling").find("SubAppNetwork")
     groups = [g.get("Name") for g in net.findall("Group")]
     assert groups == ["ModuleLevel", "ModuleLevelSkills", "Procedures", "SkillPrimitives", "EquipmentIO"]
@@ -267,7 +263,7 @@ def test_stop_sequence_nodes_do_not_collide_with_the_stop_method():
     object /Skills/<name>/Stop inside the skill's Stop method node."""
     from iec61499_mgmt.sysfile import flatten
     from modgen.module import application
-    spec = load(ROOT / "modules" / "filling.yaml")
+    spec = load(SPECS / "filling.yaml")
     app = flatten(application(ET.Element("System"), spec, "pc").find("SubAppNetwork"))
     paths = {k: v for k, v in app.parameters.items() if k.startswith("Dispensing.Stop.") and k.endswith(".UaPath")}
     assert paths == {"Dispensing.Stop.MoveNeedleUp.UaPath": '"/Skills/Dispensing/Stopping/MoveNeedleUp"'}

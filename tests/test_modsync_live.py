@@ -1,6 +1,6 @@
 """modsync against FORTE: read a deployed module back, push a parameter, respect occupation, pull from the CLI.
 
-    python -m pytest tests/test_modsync_live.py --module-forte-exe 4diac/tools/fbe/build/modules-win/output/bin/forte.exe
+    python -m pytest aas61499-tools/tests/test_modsync_live.py --module-forte-exe runtime/fbe/build/modules-win/output/bin/forte.exe
 """
 from pathlib import Path
 import subprocess
@@ -13,15 +13,18 @@ import pytest
 from conftest import free_port, launch_forte
 from iec61499_mgmt.bootfile import deployment
 from iec61499_mgmt.protocol import Client, Command
-from modgen import load, specs
+from modgen import SPECS, load, specs
 from modgen.library import STATES
 from modsync import aas
 from modsync.compare import Candidate
 from modsync.sync import Refused, candidates, inspect, push
-from test_module_live import ModuleSim, ModuleUa, SimServer
 
-ROOT = Path(__file__).resolve().parents[1]
-FILLING = ROOT / "modules" / "filling.yaml"
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "cell" / "sim"))
+from module_sim import ModuleSim, SimServer  # noqa: E402
+from module_ua import ModuleUa  # noqa: E402
+
+FILLING = SPECS / "filling.yaml"
 DWELL = "Dispensing.Execute.Dwell.Duration"
 
 
@@ -92,7 +95,7 @@ def test_cli_pull_writes_the_aas(module, tmp_path):
                          cwd=ROOT, capture_output=True, text=True, timeout=60)
     assert run.returncode == 0, run.stderr
     # The test's Modbus endpoint differs from the spec's: reported as drift, needing a restart.
-    assert (f"Filling (21 instances), {len(module.overrides)} differences from modules/filling.yaml target pc"
+    assert (f"Filling (21 instances), {len(module.overrides)} differences from cell/modules/filling.yaml target pc"
             in run.stdout)
     with (tmp_path / "FillingModuleAAS.json").open(encoding="utf-8") as f:
         objects = {o.id_short: o for o in read_aas_json_file(f, failsafe=False)}
