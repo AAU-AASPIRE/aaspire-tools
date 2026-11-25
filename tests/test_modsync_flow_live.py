@@ -2,7 +2,7 @@
 AAS, created online while the module runs, and run over OPC UA; the branch a condition chooses runs,
 the other does not.
 
-    python -m pytest aas61499-tools/tests/test_modsync_flow_live.py --module-forte-exe <a FORTE with ModLib's flow blocks>
+    python -m pytest tests/test_modsync_flow_live.py --module-forte-exe <a FORTE with ModLib's flow blocks>
 """
 import time
 

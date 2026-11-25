@@ -14,7 +14,7 @@ from modreg import model, profile as profiles
 from modreg.capabilities import state_point
 from modreg.offer import capabilities as derive_anew
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 BASE = "https://smartproductionlab.aau.dk"
 
 

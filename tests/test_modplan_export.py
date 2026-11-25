@@ -17,7 +17,7 @@ from modplan.read import read
 
 from modreg import model, profile as profiles
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 # (module, capability, values, results)
 CASES = [("filling", "Filling", {"FillVolume": 2.0}, ("FillWeight",)),
          ("filling", "Filling", {"FillVolume": 15.0}, ("FillWeight",)),      # two doses

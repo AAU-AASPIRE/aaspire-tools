@@ -11,7 +11,7 @@ from modplan.read import read
 
 from modreg import model, profile as profiles
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 
 
 def test_stoppering_is_planned_as_the_module_does_it():

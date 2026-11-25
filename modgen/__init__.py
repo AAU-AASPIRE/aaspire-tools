@@ -1,15 +1,16 @@
-"""Generate 4diac projects from module specifications (``cell/modules/*.yaml``).
+"""Generate 4diac projects from module specifications (a line's ``cell/modules/*.yaml``).
 
 Each module gets its own project (``cell/control/<project>``: equipment IO, skill primitives,
 module level skills, system). The generator's own test module is not part of the cell: its
 specification and project are with this library's tests (``tests/modules``, ``tests/control``). The module-independent types (package ``modlib``) are declared in
 every project so the IDE can open it on its own, but compiled once, from the ``ModLib`` project
-of this library (``iec61499-skill-lib/ModLib``). Every project carries its type manifest
-(``types-manifest.json``, read by ``runtime/validate.ps1``).
+of this library (``ModLib``). Every project carries its type manifest (``types-manifest.json``,
+read by forte-runtime's ``validate.ps1``).
 """
 from __future__ import annotations
 
 from functools import lru_cache
+import os
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -19,8 +20,19 @@ from .module import make_module
 from .spec import ModuleSpec, load
 
 LIBRARY_ROOT = Path(__file__).resolve().parents[1]      # iec61499-skill-lib
-REPO = LIBRARY_ROOT.parent
-CELL = REPO / "cell"                                     # the line's modules: specs and generated control
+
+
+def _cell() -> Path:
+    """The line's modules, their specs and generated control: ``$MODGEN_CELL``, else ``./cell`` (run
+    from a line's repository), else the aseptic line beside this library (``AAU-AASPIRE/aseptic-line``)."""
+    if os.environ.get("MODGEN_CELL"):
+        return Path(os.environ["MODGEN_CELL"]).resolve()
+    if (Path.cwd() / "cell" / "modules").is_dir():
+        return Path.cwd() / "cell"
+    return LIBRARY_ROOT.parent / "aseptic-line" / "cell"
+
+
+CELL = _cell()
 SPECS = CELL / "modules"
 PROJECTS = CELL / "control"
 LIBRARY_SPECS = LIBRARY_ROOT / "tests" / "modules"         # the generator's test module (filler)

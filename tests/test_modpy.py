@@ -18,7 +18,7 @@ from modpy.run import Runtime, unsupported
 from modpy.st import evaluate
 
 ROBOTS = SPECS / "python"
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "cell" / "sim"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "sim"))
 
 
 class Robot:
@@ -208,7 +208,7 @@ def test_its_aas_and_its_robots_follow_the_resource_ontology(name):
     pytest.importorskip("aas_model")
     from modreg import model, pymodules
     from modreg.ontology import Blueprint, check
-    blueprint = Blueprint(Path(__file__).resolve().parents[2] / "ontology" / "ARSO")
+    blueprint = Blueprint(Path(__file__).resolve().parents[2] / "ontologies" / "ARSO")
     built = [model.build(profile) for profile in pymodules.describe_all(load(ROBOTS / f"{name}.yaml"))]
     assert [env["assetAdministrationShells"][0]["idShort"] for env in built] == [
         f"{name.capitalize()}ModuleAAS", f"{name.capitalize()}RobotAAS"]

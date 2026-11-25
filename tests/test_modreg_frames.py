@@ -14,7 +14,7 @@ from modsync.aasjson import at, children, submodel
 from modreg import model, profile as profiles
 from modreg.frames import Pose, chain, coordinates, place, relative, where
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 EXAMPLES = SPECS.parent / "examples"
 BASE = "https://smartproductionlab.aau.dk"
 
@@ -99,7 +99,7 @@ def test_every_coordinate_of_the_line_is_in_one_tree(line_envs):
 def test_the_stations_are_the_simulated_tables(line_envs):
     """The stations of planar-controller/tests/line_scenario.py (X, Y, Rz on the table), from the
     modules' bases on the table, their transfer points and the line's own pick and place points."""
-    scenario = SPECS.parents[1] / "planar-controller" / "tests" / "line_scenario.py"
+    scenario = SPECS.parents[2].parent / "planar-controller" / "tests" / "line_scenario.py"
     if not scenario.is_file():
         pytest.skip("the planar-controller submodule is needed")
     stated = dict(re.findall(r'"(\w+)": \(([-0-9., ]+)\)', scenario.read_text(encoding="utf-8").split("STATIONS = {")[1].split("}")[0]))

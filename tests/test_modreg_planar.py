@@ -58,7 +58,7 @@ def test_the_table_lists_its_shuttles_and_its_flyways_with_where_they_are():
     inputs = [v["value"]["idShort"] for v in start["inputVariables"]]
     assert [p["idShort"] for p in children(at(action, "input", "properties"))] == inputs
     assert [p["idShort"] for p in children(at(action, "output", "properties"))] == ["Accepted", "ErrorID"]
-    blueprint = Blueprint(ROOT / "ontology" / "ARSO")
+    blueprint = Blueprint(ROOT / "ontologies" / "ARSO")
     for name, env in envs.items():
         assert check(env, blueprint).ok, name
 
@@ -122,13 +122,13 @@ def test_the_line_runs_to_the_stations_its_aass_say(controllers):
     from line_scenario import run_line, summary
     if "places" not in inspect.signature(run_line).parameters:
         pytest.skip("the planar controller in the submodule takes no stations from outside yet")
-    sys.path.insert(0, str(ROOT / "cell" / "examples"))
+    sys.path.insert(0, str(ROOT / "aseptic-line" / "cell" / "examples"))
     try:
         import example_line
         resources, _ = example_line.build()
         places = example_line.stations([example_line.table(), example_line.line(resources), *resources.values()])
     finally:
-        sys.path.remove(str(ROOT / "cell" / "examples"))
+        sys.path.remove(str(ROOT / "aseptic-line" / "cell" / "examples"))
     # Three xbots on the flyway centres of the left column, fast moves: as the scenario's own test.
     ctl, server, endpoint = controllers({1: (0.12, 0.12, 0.0), 2: (0.12, 0.36, 0.0), 3: (0.12, 0.60, 0.0)},
                                         speed=2.0, accel=10.0, turn_speed=20.0, turn_accel=200.0)

@@ -385,13 +385,13 @@ def test_the_planner_has_the_process_aas_of_a_product_written(service, aas_serve
     """F6: after the planner saves a product's recipe with its bindings, the service writes the
     product's process AAS on the line that holds the bound modules, its Validation the plan check's."""
     from test_modreg_process import BOUND, ROOT as HERE, planned
-    sys.path.insert(0, str(HERE / "cell" / "examples"))
+    sys.path.insert(0, str(HERE / "aseptic-line" / "cell" / "examples"))
     try:
         import example_line
         resources, products = example_line.build()
         system = example_line.line(resources)
     finally:
-        sys.path.remove(str(HERE / "cell" / "examples"))
+        sys.path.remove(str(HERE / "aseptic-line" / "cell" / "examples"))
     url, registry = service
     for env in [system, *resources.values(), planned(products["Vial2mLAAS"], BOUND)]:
         registry.server.publish(env)

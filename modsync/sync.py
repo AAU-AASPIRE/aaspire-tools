@@ -31,7 +31,7 @@ from modgen.library import STATES
 from .compare import Candidate, Drift, closest, compare, expected_values, init_link, owner, parameters
 from .device import Snapshot, read_structure, read_values
 
-ROOT = Path(__file__).resolve().parents[2]              # the repository (paths in reports are relative to it)
+ROOT = Path(__file__).resolve().parents[2]              # AAU-AASPIRE: the repositories side by side
 PI_TOOL = ROOT / "deploy" / "pi.py"
 # Library internals read for the guard: the state manager's and the occupation's logic FBs.
 MODULE_STATE, OCCUPIED = "Module.Logic.State", "Occupation.Logic.Occupied"
@@ -48,10 +48,13 @@ def candidates(paths) -> list[Candidate]:
 def relative(path: Path | None) -> str:
     if path is None:
         return ""
-    try:
-        return Path(path).resolve().relative_to(ROOT).as_posix()
-    except ValueError:
-        return str(path)
+    # Relative to the line's repository the command runs in (cell/modules/...), else to the workspace.
+    for base in (Path.cwd(), ROOT):
+        try:
+            return Path(path).resolve().relative_to(base.resolve()).as_posix()
+        except ValueError:
+            pass
+    return str(path)
 
 
 @dataclass

@@ -20,7 +20,7 @@ from modplan.expression import parse
 from modplan.lift import flow
 from modplan.plan import NoPlan, Planned, plan, reach
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 AXIS = Var("LinearAxis_ActualPosition", "Position")
 HOMED = Var("LinearAxis_Homed", "Referenced")
 TARED = Var("Scale", "Tared")

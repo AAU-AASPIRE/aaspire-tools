@@ -20,7 +20,7 @@ from modreg.ontology import Blueprint, check                                # no
 from modsync.compare import compare, expected, expected_values              # noqa: E402
 from modsync.device import Snapshot                                         # noqa: E402
 
-ARSO = Path(__file__).resolve().parents[2] / "ontology" / "ARSO"
+ARSO = Path(__file__).resolve().parents[2] / "ontologies" / "ARSO"
 BASE = "https://smartproductionlab.aau.dk"
 RECORD_FIELD = "https://smartproductionlab.aau.dk/timeseries/RecordField/1/0"      # a field of a time series (aas-model)
 WOT_NAME = "https://www.w3.org/2019/wot/td#name"

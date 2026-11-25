@@ -11,7 +11,7 @@ from modplan.__main__ import main
 sys.path.insert(0, str(Path(__file__).parent))
 from test_modsync_desired import aas                                                 # noqa: E402
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 
 
 def test_a_skill_is_planned_written_into_the_aas_and_checked(tmp_path, capsys):

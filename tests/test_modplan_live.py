@@ -2,7 +2,7 @@
 run over OPC UA (G4): new behaviour from the capability model, through the IEC 61499 management
 interface, without a restart.
 
-    python -m pytest aas61499-tools/tests/test_modplan_live.py --module-forte-exe <a FORTE with every module>
+    python -m pytest tests/test_modplan_live.py --module-forte-exe <a FORTE with every module>
 """
 import pytest
 

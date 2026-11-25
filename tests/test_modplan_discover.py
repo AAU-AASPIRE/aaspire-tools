@@ -14,7 +14,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from test_modplan import filling                                                     # noqa: E402
 from test_modsync_desired import aas                                                 # noqa: E402
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 BASE = "https://smartproductionlab.aau.dk"
 
 

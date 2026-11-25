@@ -14,7 +14,7 @@ from modreg import templates                                    # noqa: E402
 from modreg.ontology import ARSO as NS, Blueprint               # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[2]
-ARSO = ROOT / "ontology" / "ARSO"
+ARSO = ROOT / "ontologies" / "ARSO"
 GENERATOR = templates.AAS_MODEL / "scripts" / "idta_generate.py"
 
 TINY = """
@@ -139,7 +139,7 @@ def test_the_product_templates_are_the_planners():
 @pytest.mark.skipif(not GENERATOR.exists(), reason="no aas-model checkout")
 def test_the_submodule_is_the_aas_model_the_package_installs():
     """The classes are generated with the checkout and run with the installed package: one commit."""
-    pinned = re.search(r"aas-model/archive/([0-9a-f]{40})\.zip", (ROOT / "pyproject.toml").read_text(encoding="utf-8")).group(1)
+    pinned = re.search(r"aas-model/archive/([0-9a-f]{40})\.zip", (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")).group(1)
     checked_out = subprocess.run(["git", "-C", str(templates.AAS_MODEL), "rev-parse", "HEAD"],
                                  capture_output=True, text=True, check=True).stdout.strip()
     assert checked_out == pinned

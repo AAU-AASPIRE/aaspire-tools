@@ -24,13 +24,13 @@ BOUND = {
 
 @pytest.fixture(scope="module")
 def line():
-    sys.path.insert(0, str(ROOT / "cell" / "examples"))
+    sys.path.insert(0, str(ROOT / "aseptic-line" / "cell" / "examples"))
     try:
         import example_line
         resources, products = example_line.build()
         return resources, products, example_line.line(resources)
     finally:
-        sys.path.remove(str(ROOT / "cell" / "examples"))
+        sys.path.remove(str(ROOT / "aseptic-line" / "cell" / "examples"))
 
 
 def ref(*keys):

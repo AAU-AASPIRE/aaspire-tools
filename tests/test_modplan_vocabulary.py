@@ -8,7 +8,7 @@ from modgen import load
 
 from modplan.vocabulary import LAB, PPRL, Vocabulary, local
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 # Primitives that serve no capability: RetractPiston draws the piston in after an abort; AwaitJob
 # waits for a robot's job to end.
 SERVING_NONE = {"RetractPiston", "AwaitJob"}
@@ -60,7 +60,7 @@ def test_the_capabilities_are_kinds_of_the_standards_classes(vocabulary):
     """0.9: a capability below DIN 8580 (what changes the product) or VDI 2860 (what moves or checks
     it), each class it names declared in the copy kept here, and the copies are what it imports."""
     from rdflib import OWL, RDF, RDFS, Graph, URIRef
-    ontology = Path(__file__).resolve().parents[2] / "ontology"
+    ontology = Path(__file__).resolve().parents[2] / "ontologies"
     graph = Graph()
     for folder in STANDARDS.values():
         graph.parse(ontology / folder / f"{folder}.ttl", format="turtle")

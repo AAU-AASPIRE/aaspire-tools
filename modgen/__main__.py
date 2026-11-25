@@ -26,7 +26,7 @@ def main():
     for path in paths:
         project = generate(load(path))
         print(f"Generated {project.root} ({sum(e for *_, e in project.manifest)} exported types)")
-    print("Build all modules into one FORTE: runtime/build-modules.ps1 [-Config modules-win | pi/modules-pi]")
+    print("Build all modules into one FORTE: build-modules.ps1 in forte-runtime [-Config modules-win | pi/modules-pi]")
 
 
 if __name__ == "__main__":

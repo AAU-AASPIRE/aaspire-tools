@@ -1,7 +1,7 @@
 """modsync against FORTE: a module is verified against its AAS, and brought to what the AAS
 describes, without its module spec.
 
-    python -m pytest aas61499-tools/tests/test_modsync_desired_live.py --module-forte-exe runtime/fbe/build/modules-win/output/bin/forte.exe
+    python -m pytest tests/test_modsync_desired_live.py --module-forte-exe ../forte-runtime/fbe/build/modules-win/output/bin/forte.exe
 """
 import copy
 import time

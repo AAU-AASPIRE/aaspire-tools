@@ -18,7 +18,7 @@ from modreg import model, profile as profiles
 sys.path.insert(0, str(Path(__file__).parent))
 from test_modplan import AXIS, CHECKED, HOMED, TARED, filling as written                      # noqa: E402
 
-SPECS = Path(__file__).resolve().parents[2] / "cell" / "modules"
+SPECS = Path(__file__).resolve().parents[2] / "aseptic-line" / "cell" / "modules"
 
 
 @pytest.fixture(scope="module")

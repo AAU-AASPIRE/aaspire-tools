@@ -418,7 +418,7 @@ def test_a_skill_written_in_the_skill_editor_is_built(delivered):
     assert lua(rows(recorded)) == lua(rows(whole))
     # It is what the ontology describes, and the module still is what the recorded AAS describes.
     from modreg.ontology import Blueprint, check
-    arso = Blueprint(Path(__file__).resolve().parents[2] / "ontology" / "ARSO")
+    arso = Blueprint(Path(__file__).resolve().parents[2] / "ontologies" / "ARSO")
     assert check(recorded, arso).ok and len(check(recorded, arso).unknown) == len(check(whole, arso).unknown)
     assert read(forte, "pi", 61499, recorded, components).differences.empty
     assert record(recorded, after)[0] == record(record(recorded, after)[0], after)[0]   # nothing is added twice

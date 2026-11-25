@@ -8,13 +8,14 @@ holds on that module only. What holds of a capability class holds of every class
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 
 from rdflib import Graph, Namespace, RDFS, URIRef
 
 from .expression import Expression, parse
 
-ONTOLOGY = Path(__file__).resolve().parents[2] / "ontology"
+ONTOLOGY = Path(os.environ.get("AASPIRE_ONTOLOGIES") or Path(__file__).resolve().parents[2] / "ontologies")   # beside this repository
 LAB = Namespace("https://smartproductionlab.aau.dk/semantics/")
 SKILLS = Namespace("https://smartproductionlab.aau.dk/skills/")
 PPRL = Namespace("https://w3id.org/2025/pprl#")

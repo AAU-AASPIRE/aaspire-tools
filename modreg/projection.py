@@ -20,13 +20,14 @@ The graph holds the vocabulary too, so the rules and whoever queries the result 
 """
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from rdflib import BNode, Graph, Literal, Namespace, RDF, URIRef
 
 from .ontology import CHILDREN, Blueprint
 
-ONTOLOGY = Path(__file__).resolve().parents[2] / "ontology"
+ONTOLOGY = Path(os.environ.get("AASPIRE_ONTOLOGIES") or Path(__file__).resolve().parents[2] / "ontologies")   # beside this repository
 RULES = ONTOLOGY / "PPRL" / "projection"
 PA = Namespace("https://w3id.org/2025/pprl/aas#")
 PPRL = Namespace("https://w3id.org/2025/pprl#")

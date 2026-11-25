@@ -1,12 +1,12 @@
 """modsync against FORTE: read a deployed module back, push a parameter, respect occupation, create a module
 level skill online, pull from the CLI.
 
-    python -m pytest aas61499-tools/tests/test_modsync_live.py --module-forte-exe runtime/fbe/build/modules-win/output/bin/forte.exe
+    python -m pytest tests/test_modsync_live.py --module-forte-exe ../forte-runtime/fbe/build/modules-win/output/bin/forte.exe
 
 On a Raspberry Pi instead (FORTE in its container, deploy/pi.py install): the filling module's PC
 application runs there, its Modbus IO pointed at the simulator on this machine.
 
-    python -m pytest aas61499-tools/tests/test_modsync_live.py --pi-host 192.168.0.203 --sim-host <this machine>
+    python -m pytest tests/test_modsync_live.py --pi-host 192.168.0.203 --sim-host <this machine>
 """
 from contextlib import ExitStack, contextmanager
 from pathlib import Path
@@ -28,7 +28,7 @@ from modsync.compare import Candidate
 from modsync.sync import PiDeployer, Refused, candidates, inspect, push
 
 ROOT = Path(__file__).resolve().parents[2]
-sys.path.insert(0, str(ROOT / "cell" / "sim"))
+sys.path.insert(0, str(ROOT / "aseptic-line" / "cell" / "sim"))
 from module_sim import separate  # noqa: E402
 from module_ua import ModuleUa  # noqa: E402
 from test_modsync import Recorder, composed  # noqa: E402
