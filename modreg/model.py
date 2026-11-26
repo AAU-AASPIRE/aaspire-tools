@@ -9,13 +9,10 @@ MQTT stations, the modules and the products go through the same code.
 from __future__ import annotations
 
 import copy
-import functools
 import json
-import threading
 import typing
 
 import aas_pydantic.aas_model
-import aas_pydantic.convert_aas_instance
 
 from aas_model.constants import BASE_URL, INVOCATION_ORIGIN
 from aas_model.id_injector import inject_ids
@@ -24,64 +21,18 @@ from aas_model.process_template import Process
 from aas_model.product_template import Product
 from aas_model.resource_template import Resource
 from aas_model.resource_template.modules import (                      # noqa: F401 (the types, here too)
-    RESOURCE, Component, ComposedOf, LocatedEntryNode, LocatedNode, LocatedStructures, Module,
+    RESOURCE, Component, LocatedEntryNode, LocatedNode, LocatedStructures, Module,
     ModuleCapabilityContainer, ModuleCapabilityDescription, ModuleCapabilityRelations, ModuleCapabilitySet,
-    ModuleComposedOfContainer, ModuleComposedOfSet, ModuleConstraintSet, ModuleControlConfiguration, ModuleInterfaces,
+    ModuleConstraintSet, ModuleControlConfiguration, ModuleInterfaces,
     ModuleSkill, ModuleSkills, ProductionSystem, RealizedBySkill, SameAs, StatedProperty, StatedPropertySet,
-    BasicConstraintContainer, structure,
+    BasicConstraintContainer,
 )
 from aas_model.submodel_templates import SkillOperation
 from aas_pydantic import AAS, Qualifier, convert_model_to_aas
-from aas_pydantic.convert_util import strip_temp_id_short_attributes
 from basyx.aas import model as basyx
 from basyx.aas.adapter.json import AASToJsonEncoder
 from pydantic import BaseModel
 from pydantic_core import to_jsonable_python
-
-
-class _Typing:
-    """``typing`` with the type hints of a class remembered. aas_pydantic resolves them again for
-    every element it dumps, validates or converts, which makes the dump of a module take minutes
-    (4 s for the lab's empty resource). The classes do not change after import, so once is enough."""
-
-    def __init__(self):
-        self._hints = functools.lru_cache(maxsize=None)(typing.get_type_hints)
-
-    def get_type_hints(self, obj, **options):
-        return self._hints(obj, **options)
-
-    def __getattr__(self, name):
-        return getattr(typing, name)
-
-
-aas_pydantic.aas_model.typing = aas_pydantic.convert_aas_instance.typing = _Typing()
-
-
-class _Once(threading.local):
-    """aas_pydantic's serializer of an element dumps the element's children, and then once more to
-    keep their own classes; every level does that again for what is below it, so a dump takes time
-    exponential in the depth (10 s for a module). Within one dump an element is the same each time
-    it is reached, so it is serialized once. Per thread: the registration service dumps in several."""
-
-    def __init__(self, serialize):
-        self.serialize, self.depth, self.done = serialize, 0, {}
-
-    def __call__(self, element, handler):
-        if id(element) in self.done:
-            return self.done[id(element)]
-        self.depth += 1
-        try:
-            data = self.serialize(element, handler)
-        finally:
-            self.depth -= 1
-        if self.depth:
-            self.done[id(element)] = data
-        else:
-            self.done.clear()
-        return data
-
-
-aas_pydantic.aas_model._serialize_element_containers = _Once(aas_pydantic.aas_model._serialize_element_containers)
 
 
 ARSO = f"{BASE_URL}/ARSO"
@@ -212,6 +163,8 @@ def slim(node, dumped, known, declared=None, name=None):
             out = {"id_short": dumped["id_short"], **out}
         if new and declared is not None and declared is not type(node):
             out["modelType"] = type(node).__name__
+        elif isinstance(dumped, dict) and "modelType" in dumped and (new or known.get("modelType") != dumped["modelType"]):
+            out["modelType"] = type(node).__name__          # an element of a subclass of its field's class
         if isinstance(node, aas_pydantic.Reference):
             out["type_"] = node.type_                # a field of the base class takes either kind
         return out if out or new else SAME
@@ -284,9 +237,6 @@ def environment(model: AAS, global_asset_id: str | None = None) -> dict:
     names the asset like the shell and calls it an instance; ``global_asset_id`` gives it its own
     id, and a type that states its ``ASSET_KIND`` its own kind."""
     store = convert_model_to_aas(model)
-    # aas_pydantic keeps a list item's idShort in a Property of its own to read it back; nothing reads
-    # it back here, and the DMP refuses an AIMC with elements it does not know.
-    strip_temp_id_short_attributes(store)
     # json.dumps, not BaSyx's file writer: that one encodes in Python and takes seconds for a module.
     found = {"assetAdministrationShells": [o for o in store if isinstance(o, basyx.AssetAdministrationShell)],
              "submodels": [o for o in store if isinstance(o, basyx.Submodel)]}

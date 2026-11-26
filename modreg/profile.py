@@ -37,15 +37,12 @@ import json
 
 from aas_model.constants import AID_WOT_NAME, BASE_URL
 from aas_model.json_schema_aid import datapoint_from_schema
-from aas_model.resource_template import skill_operation
-from aas_model.resource_template._helpers import put
-from aas_model.resource_template.asset_interfaces_mapping_configuration import (
-    mapping_configuration, response_sink, response_source, series_segment_ref, sink, source,
-)
+from aas_model.resource_template.references import series_segment_ref
 from aas_model.submodel_templates import (
     Aimc, AimcMappingConfigurations, DmpActionInput, DmpActionOutput, DmpProperty, OpcuaAction,
     DmpProperties, OpcuaActions, ReadOnly, Synchronous, UavComponentOf,
 )
+from aas_model.submodel_templates.aid import OpcuaForm
 from aas_pydantic import Capability, Key, ModelReference, Property, Qualifier, ReferenceElement
 from aas_pydantic.submodel_templates import asset_interfaces_description as wot
 from aas_pydantic.submodel_templates import capability_description as cd
@@ -60,6 +57,10 @@ from modsync.compare import Drift, expected, expected_values
 from modsync.device import Snapshot, literal
 
 from . import model
+from .authoring import (
+    delegated, mapping_configuration, operation_log, put, record_field, response_sink, response_source, sink, source,
+    time_series,
+)
 from .derive import Offer, local, offers as derived_offers
 from .projection import project
 from aas_model.submodel_templates.arso import control_configuration as cc, skills as arso
@@ -68,7 +69,6 @@ from aas_model.submodel_templates.coordinates import (
     CoordinateRelativeTo, CoordinateSource, Coordinates, CoordinatePitch, CoordinateRoll, CoordinateX, CoordinateY,
     CoordinateYaw, CoordinateZ, RelativeCoordinate,
 )
-from aas_model.submodel_templates.time_series import operation_log, record_field, time_series
 from aas_model.submodel_templates.variables import LogGroup, MeasurementsGroup, StateGroup
 from .lab import nameplate
 from .model import Component, Module
@@ -393,7 +393,7 @@ class Describer:
 
     def property(self, key: str, node: str, iec: str, title: str, unit: str | None = None) -> str:
         href = browse_path(self.spec, node, self.namespace)
-        p = DmpProperty()
+        p = DmpProperty(forms=OpcuaForm())
         p.key = wot.Key(value=key)
         p.title = wot.Title(value=title)
         p.type = wot.Type(value=JSON.get(iec, "integer"))
@@ -447,7 +447,7 @@ class Describer:
         """The Operation of a command: the session and ``inputs`` in; Accepted, ErrorID and
         ``outputs`` out. With ``key`` it invokes that action of the interface: the AAS server
         delegates the call to the DMP, which calls the method as the AIMC maps it."""
-        op = arso.SkillOperation(id_short="operation", qualifiers=skill_operation(key or "local", synchronous=True).qualifiers)
+        op = arso.SkillOperation(id_short="operation", qualifiers=delegated())
         if not key:
             op.qualifiers = []                      # nothing calls it: it only declares the variables
         op.semantic_id = meaning_id
@@ -1026,8 +1026,8 @@ def capability_description(found: list[Offer], stated: dict[str, tuple[str, Capa
             used = {f"{held}{name}": path(f"{aas}/submodels/CapabilityDescription", (SMC, held), (SMC, name), ("Capability", "Capability"))
                     for aas, held, name in offer.composed_of}
         how_made = offer.skill_name or "Plan"
-        composed = model.ModuleComposedOfSet(id_short="ComposedOfSet", ComposedOfContainer={how_made: model.ModuleComposedOfContainer(
-            id_short=how_made, CapabilityComposedOf={n: model.ComposedOf(id_short=n, first=capability_path(id_short), second=r)
+        composed = cd.ComposedOfSet(id_short="ComposedOfSet", ComposedOfContainer={how_made: cd.ComposedOfContainer(
+            id_short=how_made, CapabilityComposedOf={n: cd.CapabilityComposedOf(id_short=n, first=capability_path(id_short), second=r)
                                                      for n, r in used.items()})}) if used else None
         containers[id_short] = model.ModuleCapabilityContainer(
             id_short=id_short, Capability=capability,

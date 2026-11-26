@@ -7,13 +7,15 @@ Needs the ``registration`` extra (aas-model); skipped without it.
 import base64
 import io
 import json
+import typing
 
 import pytest
 
 pytest.importorskip("aas_model")
 
+import aas_pydantic                                                                 # noqa: E402
+import aas_pydantic.aas_model as aas_model                                          # noqa: E402
 from aas_pydantic import Capability, Key, ModelReference, Property, Qualifier       # noqa: E402
-from aas_pydantic.convert_aas_instance import convert_submodel_to_model_instance   # noqa: E402
 from aas_pydantic.convert_pydantic_model import convert_model_to_submodel          # noqa: E402
 from aas_pydantic.submodel_templates import capability_description as cd            # noqa: E402
 from basyx.aas import model as basyx                                                # noqa: E402
@@ -226,11 +228,39 @@ def saved_plan() -> dict:
                 c("Steps", [filling, sampled, both, node(3, "call", "Pack", r("SequenceReference", called))])]}
 
 
+def read(cls, element: dict):
+    """The AAS JSON of an element as an instance of ``cls``: aas_pydantic validates its own dumps, which name
+    the children of a container by field, so each child goes to the field (or the map) that takes its name."""
+    held = {"id_short": element["idShort"], **({"id": element["id"]} if "id" in element else {})}
+    if "value" in element and not isinstance(element["value"], list):
+        held["value"] = element["value"]
+        if "valueType" in element:
+            held["value_type"] = element["valueType"]
+    children = element.get("submodelElements", element.get("value")) if isinstance(element.get("value", []), list) else []
+    if issubclass(cls, aas_pydantic.SubmodelElementList):
+        held["value"] = [read(cls.item_type, child) for child in children]
+        return cls(**held)
+    for child in children:
+        name = child["idShort"]
+        if name in cls.model_fields:
+            held[name] = read(item_class(cls, name), child)
+        else:
+            field, item = next((f, i) for f in cls.model_fields
+                               if isinstance(i := aas_model._container_item_type(aas_model._field_annotation(cls, f)), type)
+                               and issubclass(i, aas_pydantic.SubmodelElement))
+            held.setdefault(field, {})[name] = read(item, child)
+    return cls(**held)
+
+
+def item_class(cls, field: str):
+    """The class of the element a field of ``cls`` holds."""
+    declared = aas_model._field_annotation(cls, field)
+    return next(a for a in (typing.get_args(declared) or (declared,)) if a is not type(None))
+
+
 def test_a_plan_the_planner_saved_reads_into_the_classes():
     saved = saved_plan()
-    store = read_aas_json_file(io.StringIO(json.dumps({"assetAdministrationShells": [], "submodels": [saved], "conceptDescriptions": []})),
-                               failsafe=False)
-    plan = convert_submodel_to_model_instance(next(o for o in store if isinstance(o, basyx.Submodel)), ps.ProductionSequence)
+    plan = read(ps.ProductionSequence, saved)
     steps = plan.Steps.Step
     assert [(s.Kind.value, s.Name.value) for s in steps.values()] == [
         ("step", "Filling"), ("conditional", "Every fifth"), ("parallel", "Assemblies"), ("call", "Pack")]

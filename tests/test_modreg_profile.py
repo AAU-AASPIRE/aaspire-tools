@@ -660,7 +660,7 @@ def test_the_labs_own_resources_go_the_same_way():
     station = MqttOperationalStation(id_short="SomeStationAAS", id=f"{BASE}/aas/SomeStationAAS")
     env = model.build(json.loads(station.model_dump_json()))
     assert names(submodel(env, "AssetInterfacesDescription")) == ["interface_mqtt"]
-    assert {"Halt", "Occupy", "Release"} == set(names(at(submodel(env, "ControlComponentInstance"), "Skills")))
+    assert {"Halt", "Occupy", "Release"} == set(names(submodel(env, "Skills"))) - {"Errors"}
 
 
 def test_what_is_not_a_profile_is_refused():

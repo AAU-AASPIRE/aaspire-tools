@@ -35,12 +35,12 @@ from dataclasses import dataclass
 import re
 
 from aas_model.constants import BASE_URL
-from aas_model.resource_template._helpers import put
 from aas_pydantic.submodel_templates.nameplate import ManufacturerProductDesignation
 
 from modgen.spec import Location, ModuleSpec, Parameter, Skill
 
 from . import model
+from .authoring import put
 from aas_model.submodel_templates.arso import parameters as settings
 from aas_model.submodel_templates.arso import skills as arso
 from aas_model.submodel_templates.coordinates import Coordinates
