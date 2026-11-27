@@ -26,7 +26,7 @@ SEVERITIES = {
     "operand.type": "error", "operator.cardinality": "error", "operator.unchanged": "error", "operator.during": "error",
     "operator.equal-measured": "warning", "formula.linear": "error", "effect.conflict": "error", "effect.target": "error",
     "declaration.vocabulary": "error", "declaration.kind": "error", "declaration.missing": "error",
-    "constraint.state": "error", "translation.realized-by": "error", "translation.coverage": "error",
+    "constraint.state": "error", "translation.realized-by": "error",
     "level.widening": "error", "level.incomplete": "warning",
 }
 RULES = {
@@ -56,7 +56,6 @@ RULES = {
     "declaration.missing": "the subject's property is not declared",
     "constraint.state": "a BasicConstraint names a state property",
     "translation.realized-by": "a capability with a Translation is not realized by exactly one Operation",
-    "translation.coverage": "the Call or Reply does not fit the Operation and the capability",
     "level.widening": "a specialization widens or contradicts the capability it specializes",
     "level.incomplete": "a specialization lacks a term of the capability it specializes",
 }
@@ -368,9 +367,8 @@ def _constrained(container: dict, model: _Model) -> list[Optional[str]]:
 # ── Translations and levels ──────────────────────────────────────────────────
 
 def translations(model: _Model) -> list[Finding]:
-    """[`translation.realized-by`] and [`translation.coverage`] (section 9): see ``execution_translation``."""
-    return [f for c in model.reading.capabilities
-            for f in execution_translation.check(c, model.environment, model.vocabulary)]
+    """[`translation.realized-by`] (section 9): see ``execution_translation``."""
+    return [f for c in model.reading.capabilities for f in execution_translation.check(c, model.environment)]
 
 
 def specialization(model: _Model) -> list[Finding]:

@@ -1,15 +1,11 @@
 """modreg's validator of the execution model (``modreg.execution``) against the shared fixtures in aas-model
 (``tests/fixtures/execution/``, sections 11 and 15 of its ``docs/execution-model.md``), aas-model's example AASs, and the edge
-cases of its rules that the fixtures do not reach. Needs aas-model beside this repository (or $AAS_MODEL), the lab vocabulary,
-rdflib and lupa."""
+cases of its rules that the fixtures do not reach. Needs aas-model beside this repository (or $AAS_MODEL), the lab vocabulary
+and rdflib. `translation.coverage` (fixture d27) is the line planner's compiler's, not modreg's."""
 from __future__ import annotations
-
-import base64
-import copy
 
 import pytest
 
-pytest.importorskip("lupa")
 from test_modplan_execution import EXAMPLES, FIXTURES, INVALID, VALID, _json, _vocabulary          # noqa: E402
 
 from modplan.execution import (                                                                    # noqa: E402
@@ -38,15 +34,19 @@ def test_a_valid_fixture_has_no_findings(name):
     assert _findings(name) == []
 
 
-@pytest.mark.parametrize("name", INVALID)
+# What the shared fixtures test that is not modreg's: the Translations' coverage is checked by the line planner's compiler.
+NOT_MODREGS = {"d27-translation-coverage"}
+
+
+@pytest.mark.parametrize("name", [n for n in INVALID if n not in NOT_MODREGS])
 def test_an_invalid_fixture_has_exactly_its_finding(name):
     assert _findings(name) == _json(FIXTURES / name / "expected.json")["findings"]
 
 
-def test_every_code_of_section_11_but_level_derived_has_a_fixture_and_a_severity():
+def test_every_code_of_section_11_but_level_derived_has_a_fixture_and_modreg_checks_all_but_coverage():
     codes = {_json(FIXTURES / n / "expected.json")["findings"][0]["code"] for n in INVALID}
     assert len(codes) == len(INVALID) == 29
-    assert codes <= set(execution.RULES)
+    assert codes - {"translation.coverage"} <= set(execution.RULES)
 
 
 # ── the examples ─────────────────────────────────────────────────────────────
@@ -59,77 +59,13 @@ def _examples() -> dict:
 def test_the_example_aases_have_the_findings_they_are_known_to_have():
     """The module's Dosing, Weighing and Positioning do not carry the End effects of the pump's, the scale's and the axis's
     capabilities they generalize (section 10: no superset until Phase 13's generator writes them), and nothing else is wrong:
-    the Translations run, the declarations resolve, the formulas are linear. A change of this list shows here."""
+    the declarations resolve, the formulas are linear. A change of this list shows here."""
     base = "CapabilityDescription/AuxiliaryCapabilities"
     assert [(f.code, f.severity, f.path) for f in validate(_examples(), _vocabulary())] == [
         ("level.incomplete", "warning", f"{base}/Dosing/CapabilityRelations/EffectSet/End"),
         ("level.incomplete", "warning", f"{base}/Positioning/CapabilityRelations/EffectSet/End"),
         ("level.incomplete", "warning", f"{base}/Weighing/CapabilityRelations/EffectSet/End"),
     ]
-
-
-# ── translation.coverage, on the scripts of d27 changed ──────────────────────
-
-CALL = "function call(subjects, properties)\n  return { Volume = 1.0 }\nend\n"
-GOOD_REPLY = ('local E = { [1] = "NoContainer" }\nfunction reply(outputs, subjects, properties)\n'
-              '  if outputs.ErrorID ~= 0 then return { ok = false, error = E[outputs.ErrorID] } end\n  return { ok = true }\nend\n')
-
-
-def _scripted(call: str = CALL, reply: str = GOOD_REPLY) -> dict:
-    """The d27 environment (one Operation taking Volume and answering ErrorID, one declared error) with these scripts."""
-    environment = copy.deepcopy(_json(FIXTURES / "d27-translation-coverage" / "aas.json"))
-
-    def walk(element):
-        if element.get("modelType") == "Blob" and element["idShort"] in ("Call", "Reply"):
-            element["value"] = base64.b64encode((call if element["idShort"] == "Call" else reply).encode()).decode()
-        for child in element.get("value") if isinstance(element.get("value"), list) else ():
-            walk(child)
-
-    for submodel in environment["submodels"]:
-        for element in submodel.get("submodelElements", ()):
-            walk(element)
-    return environment
-
-
-def _coverage(**scripts) -> list[str]:
-    return [f.path.rsplit("/", 1)[-1] for f in validate(_scripted(**scripts), _vocabulary()) if f.code == "translation.coverage"]
-
-
-def test_a_translation_that_fits_its_operation_has_no_finding():
-    assert validate(_scripted(), _vocabulary()) == []
-
-
-@pytest.mark.parametrize("call", [
-    "function call(s, p) return { Volume = 1.0, Speed = 2.0 } end",         # sends what the Operation does not take
-    "function call(s, p) return {} end",                                     # leaves out an input it needs
-    "function call(s, p) return 3 end",
-    "function call(s, p) return { Volume = 1.0 end",                         # does not load
-    "x = 1",                                                                 # has no call
-    "function call(s, p) while true do end end",                             # never ends
-    "local t = os.time() function call(s, p) return { Volume = 1.0 } end",   # the sandbox has no os: it does not load
-])
-def test_a_call_that_does_not_fit_is_found(call):
-    assert _coverage(call=call) == ["Call"]
-
-
-@pytest.mark.parametrize("reply", [
-    'function reply(o, s, p) return { ok = false, error = "Jammed" } end',   # an error the skill does not declare
-    'function reply(o, s, p) return { ok = true, outcome = "Fine" } end',    # an outcome nothing declares
-    "function reply(o, s, p) return { ok = 1 } end",
-    "function reply(o, s, p) return {} end",
-    "function reply(o, s, p) return { ok = true",
-])
-def test_a_reply_that_names_what_is_not_declared_is_found(reply):
-    assert _coverage(reply=reply) == ["Reply"]
-
-
-def test_a_script_that_raises_on_the_vectors_is_not_judged_by_them():
-    assert _coverage(call='function call(s, p) error("serves no unit") end',
-                     reply='function reply(o, s, p) error("serves no unit") end') == []
-
-
-def test_a_script_uses_the_sandbox_the_dmp_gives_and_json():
-    assert _coverage(call='function call(s, p) return json.decode(json.encode({ Volume = math.floor(1.5) })) end') == []
 
 
 # ── operators, operands ──────────────────────────────────────────────────────
