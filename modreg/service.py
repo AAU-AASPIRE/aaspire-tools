@@ -75,6 +75,7 @@ from modsync import desired
 
 from . import match as matching, model
 from .offer import at as offer_at, capabilities, children as offer_children
+from .execution import check as check_execution
 from .ontology import Blueprint, check
 from .profile import OFFERED_SET
 
@@ -98,6 +99,7 @@ class Registration:
     published: list[str] = field(default_factory=list)       # what was done on the AAS server
     unknown: list[str] = field(default_factory=list)         # elements the ontology does not describe
     summary: str = ""                                         # of the ontology check
+    warnings: list[str] = field(default_factory=list)        # of the execution model's check: what is not an error
     unchanged: bool = False                                   # the same profile was registered already
 
     def body(self) -> dict:
@@ -244,6 +246,9 @@ class Registry:
             registration.summary = report.summary()
             registration.unknown = [str(f) for f in report.unknown]
             broken = [str(f) for f in report.errors] + (registration.unknown if self.strict else [])
+            execution = check_execution(env, partial=True)
+            registration.warnings = [str(f) for f in execution if f.severity != "error"]
+            broken += [str(f) for f in execution if f.severity == "error"]
             if broken:
                 raise Refused(422, "check", broken)
         return env, registration

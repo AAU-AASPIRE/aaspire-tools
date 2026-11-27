@@ -39,6 +39,7 @@ from modsync.sync import inspect, relative
 
 try:
     from . import model, planar, profile as profiles, pymodules, templates
+    from .execution import check as check_execution
     from .ontology import Blueprint, check
     from .projection import project
     from .service import AasServer, Registry, mapped_last, send, serve
@@ -107,6 +108,18 @@ def report(env: dict, folder: str) -> bool:
     for line in result.lines():
         print(f"  {line}")
     return result.ok
+
+
+def report_execution(envs: list[dict], partial: bool) -> bool:
+    """The findings of the execution model's check over the AASs together (a module and its components), as the ontology's
+    follow; nothing is printed where there are none."""
+    merged = {key: [item for env in envs for item in env.get(key, [])] for key in ("assetAdministrationShells", "submodels")}
+    findings = check_execution(merged, partial=partial)
+    if findings:
+        print("execution model")
+        for finding in findings:
+            print(f"  {finding}")
+    return not any(f.severity == "error" for f in findings)
 
 
 def main(argv=None) -> int:
@@ -218,7 +231,7 @@ def main(argv=None) -> int:
 def act(args, found: list[dict]) -> int:
     """Write, build, check or register each profile; 1 if one failed."""
     try:
-        failed = False
+        failed, built = False, []
         for profile in mapped_last(found) if args.command == "register" else found:
             if args.command == "profile":
                 print(f"profile: {write(args.out, profile['id_short'], profile)}")
@@ -226,7 +239,8 @@ def act(args, found: list[dict]) -> int:
                 print(f"AAS: {write(args.out, profile['id_short'], model.build(profile))}")
             elif args.command == "check":
                 print(profile["id_short"])
-                failed |= not report(model.build(profile), args.ontology)
+                built.append(model.build(profile))
+                failed |= not report(built[-1], args.ontology)
             else:
                 status, answer = send(args.service, profile, args.check)
                 if status >= 400:
@@ -240,6 +254,8 @@ def act(args, found: list[dict]) -> int:
                 for line in [answer["summary"], *([] if answer["unchanged"] else answer["published"])]:
                     if line:
                         print(f"  {line}")
+        if args.command == "check":
+            failed |= not report_execution(built, partial=args.source.endswith(".json"))
     except model.ProfileError as e:
         print(f"not a valid profile: {e}", file=sys.stderr)
         return 1
