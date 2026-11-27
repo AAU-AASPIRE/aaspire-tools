@@ -11,7 +11,6 @@ import pytest
 from modgen import load
 from modgen.spec import CapabilityUse
 
-from modplan.execution import Vocabulary, VocabularyProperty
 from modreg import capabilities, model, profile as profiles
 from modreg.__main__ import main
 from modreg.execution import validate
@@ -91,27 +90,11 @@ def test_every_state_a_term_reads_or_changes_is_declared_in_the_aas_of_its_subje
 
 
 @pytest.mark.parametrize("name", NAMES)
-def test_the_validator_finds_nothing_but_the_cardinality_the_vocabulary_lacks(name):
-    """Referenced, Tared and Weight have a value type in the lab vocabulary but no cardinality, so a term about them is an error
-    (declaration.vocabulary, D14) until ontologies gives them one."""
+def test_the_validator_finds_nothing_in_the_new_form(name):
+    """The new form of every module spec, with the declarations written from the vocabulary, is valid: no errors, no
+    warnings (vocabulary 0.12 gave Referenced, Tared and Weight the cardinality every state property has)."""
     _, _, new = built(name)
-    findings = validate(merged(new))
-    assert findings and {f.code for f in findings} == {"declaration.vocabulary"} and {f.severity for f in findings} == {"error"}
-    lacking = {iri.rsplit("/", 1)[-1] for iri, p in Vocabulary.default().properties.items() if p.cardinality is None}
-    assert {"Referenced", "Tared", "Weight"} <= lacking
-
-
-def test_with_that_cardinality_the_aases_have_no_finding_at_all(monkeypatch):
-    """The only finding is the vocabulary's gap: as if the vocabulary said `single` for the three, the declarations written from it
-    and the terms are as it says, and the validator finds nothing (no errors, no warnings), on the module with all of them."""
-    vocabulary = Vocabulary.default()
-    said = {iri: VocabularyProperty(p.value_type, "single", p.derived) for iri, p in vocabulary.properties.items()
-            if p.cardinality is None and iri.rsplit("/", 1)[-1] in ("Referenced", "Tared", "Weight")}
-    complete = Vocabulary({**vocabulary.properties, **said})
-    monkeypatch.setattr(Vocabulary, "default", classmethod(lambda cls: complete))
-    spec = load(SPECS / "filling-2.yaml")
-    envs = [model.build(p) for p in profiles.describe_all(spec, next(iter(spec.targets)), execution=True)]
-    assert validate(merged(envs), complete) == []
+    assert validate(merged(new)) == []
 
 
 def test_the_cli_writes_the_new_form(tmp_path):

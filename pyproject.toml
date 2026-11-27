@@ -12,7 +12,7 @@ requires-python = ">=3.11"
 dependencies = [
     "iec61499-mgmt @ git+https://github.com/AAU-AASPIRE/iec61499-mgmt-py",
     # The archive, not git+: pip would fetch aas-model's submodules, whose paths are too long for Windows.
-    "aas-model @ https://github.com/AAU-AASPIRE/aas-model/archive/c8805b91b9fc2d9e8e0e1e32a7a9a3bf0e6bd7e5.zip",
+    "aas-model @ https://github.com/AAU-AASPIRE/aas-model/archive/e23b8e0b26363635d43be7cf7f8e2cbbb75a988a.zip",
     "basyx-python-sdk>=2.1,<3", "pydantic>=2.9,<3", "rdflib>=7,<8", "pyyaml>=6,<7", "defusedxml>=0.7,<1",
     "gtpyhop-core==2.0.2",
     # OPC UA (modlink, modpy) and discovery by mDNS (modreg serve --discover, modpy).
