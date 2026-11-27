@@ -17,6 +17,8 @@ dependencies = [
     "gtpyhop-core==2.0.2",
     # OPC UA (modlink, modpy) and discovery by mDNS (modreg serve --discover, modpy).
     "asyncua>=1.1", "zeroconf>=0.132",
+    # The Lua 5.2 sandbox of the Translations (modreg's check of the execution model, the DMP's runtime).
+    "lupa>=2.2,<3",
 ]
 
 [project.optional-dependencies]
