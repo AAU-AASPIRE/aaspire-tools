@@ -24,6 +24,8 @@ from dataclasses import dataclass
 import math
 import re
 
+from .execution import formula as grammar
+
 OPERATORS = ("+=", "!=", "<=", ">=", "=", "<", ">")      # longest first, so that "<=" is not "<"
 COMPARISONS = ("=", "!=", "<", "<=", ">", ">=")
 WORDS = ("given", "measured", "unchanged")
@@ -31,7 +33,6 @@ NAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 CONSTANTS = {"pi": math.pi}
 # What each kind of constraint (PropertyConditionalType) may say.
 ALLOWED = {"Pre": COMPARISONS, "Post": ("=", "+=", "given", "measured"), "Invariant": (*COMPARISONS, "unchanged")}
-_TOKEN = re.compile(r"\s*(?:(\d+(?:\.\d*)?(?:[eE][+-]?\d+)?|\.\d+(?:[eE][+-]?\d+)?)|([A-Za-z][A-Za-z0-9_]*)|(.))")
 
 
 @dataclass(frozen=True)
@@ -152,62 +153,22 @@ def _parse(text: str) -> Expression:
 
 
 def formula(text: str) -> Formula:
-    """The formula ``text`` states: numbers, names, + - * /, brackets."""
-    tokens = []
-    for number, name, other in _TOKEN.findall(text):
-        if number:
-            tokens.append(("num", float(number)))
-        elif name:
-            tokens.append(("name", name))
-        elif other.strip():
-            if other not in "+-*/()":
-                raise ValueError(f"{other!r} is not part of a formula")
-            tokens.append(("op", other))
-    at = 0
+    """The formula ``text`` states: numbers, names, + - * /, brackets, in the grammar of the execution model
+    (``execution.formula``, the one parser of both), as a tree of (op, left, right), numbers and names."""
+    try:
+        node = grammar.parse(text)
+    except grammar.FormulaSyntaxError as e:
+        raise ValueError(e.message) from None
+    return Formula(_tree(node), " ".join(text.split()))
 
-    def peek():
-        return tokens[at] if at < len(tokens) else (None, None)
 
-    def take():
-        nonlocal at
-        at += 1
-        return tokens[at - 1]
-
-    def expr():
-        node = term()
-        while peek() in (("op", "+"), ("op", "-")):
-            node = (take()[1], node, term())
-        return node
-
-    def term():
-        node = factor()
-        while peek() in (("op", "*"), ("op", "/")):
-            node = (take()[1], node, factor())
-        return node
-
-    def factor():
-        kind, value = peek()
-        if (kind, value) == ("op", "-"):
-            take()
-            return ("neg", factor())
-        if (kind, value) == ("op", "+"):
-            take()
-            return factor()
-        if (kind, value) == ("op", "("):
-            take()
-            node = expr()
-            if peek() != ("op", ")"):
-                raise ValueError("a bracket is not closed")
-            take()
-            return node
-        if kind in ("num", "name"):
-            take()
-            return value
-        raise ValueError("a formula ends too early" if kind is None else f"{value!r} where a value belongs")
-
-    if not tokens:
-        raise ValueError("an empty formula")
-    tree = expr()
-    if at != len(tokens):
-        raise ValueError(f"{tokens[at][1]!r} after the end of the formula")
-    return Formula(tree, " ".join(text.split()))
+def _tree(node) -> tuple | float | str:
+    if isinstance(node, grammar.Number):
+        return float(node.value)
+    if isinstance(node, grammar.Pi):
+        return "pi"
+    if isinstance(node, grammar.Alias):
+        return node.name
+    if isinstance(node, grammar.Neg):
+        return ("neg", _tree(node.operand))
+    return (node.op, _tree(node.left), _tree(node.right))
