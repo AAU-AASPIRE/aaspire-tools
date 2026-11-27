@@ -39,9 +39,9 @@ class PythonDescriber(Describer):
 
 
 def describe_all(spec: ModuleSpec, target: str | None = None, opcua: str | None = None,
-                 spec_path: str | None = None) -> list[dict]:
+                 spec_path: str | None = None, execution: bool = False) -> list[dict]:
     """The profiles of the module (the first) and of its components; ``opcua`` where its server is
     (default: the target's host, port 4840)."""
     target = target or next(iter(spec.targets))
     return [model.profile(asset, global_asset_id=asset_id)
-            for asset, asset_id in PythonDescriber(spec, target, None, None, spec_path, opcua).build()]
+            for asset, asset_id in PythonDescriber(spec, target, None, None, spec_path, opcua, execution).build()]

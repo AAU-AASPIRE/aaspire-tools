@@ -55,15 +55,16 @@ def module_profiles(args) -> list[dict]:
     target = args.target or next(iter(spec.targets))
     if pymodules.runs_in_python(path):          # served by modpy: nothing of FORTE's to read
         opcua = f"opc.tcp://{args.host}:{args.port or 4840}" if args.host else None
-        return pymodules.describe_all(spec, target, opcua, relative(path))
+        return pymodules.describe_all(spec, target, opcua, relative(path), args.execution)
     if not args.host:
-        return profiles.describe_all(spec, target, spec_path=relative(path))
+        return profiles.describe_all(spec, target, spec_path=relative(path), execution=args.execution)
     port = args.port or spec.targets[target].port
     with Client(args.host, port) as client:
         status = inspect(client, args.host, port, [Candidate(path, spec, target)])
     if not status.identified:
         sys.exit(f"{args.host}:{port} does not run {spec.module}: {status.summary()}")
-    return profiles.describe_all(spec, target, status.snapshot, status.drift, relative(path), f"opc.tcp://{args.host}:4840")
+    return profiles.describe_all(spec, target, status.snapshot, status.drift, relative(path), f"opc.tcp://{args.host}:4840",
+                                 args.execution)
 
 
 def planar_profiles(args) -> list[dict]:
@@ -135,6 +136,9 @@ def main(argv=None) -> int:
         p.add_argument("--layout", help="planar without --host: columns x rows of flyways, e.g. 4x3")
         p.add_argument("--holes", default="", help="planar without --host: flyways that are not there, e.g. \"2,1 0,2\"")
         p.add_argument("--shuttles", default="1", help="planar without --host: the xbots offered, e.g. 1,2,3")
+        p.add_argument("--execution", action="store_true",
+                       help="write what a capability needs and changes in the execution model (Subjects, ConditionSet, EffectSet, Duration; "
+                            "Knowledge) instead of as constraints")
 
     p = sub.add_parser("profile", help="write a module's profile")
     source(p, "module spec (file or name)")

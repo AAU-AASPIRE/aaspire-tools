@@ -9,6 +9,10 @@ named values, conditions on another item's state). Each is a BasicConstraint abo
 capability. A property that is a state of the module names its data point in Operational Data with
 SameProperty, so that the capabilities naming one data point talk about one state. The data points
 are the module's (its Variables), so a component's capability names them in the module's AAS.
+
+With ``execution`` (``modreg profile --execution``) what a capability needs and changes is written in the execution model instead
+(``execution_form``): Subjects, ConditionSet, EffectSet and Duration beside the properties, no state among them, and the states
+declared in the Knowledge of their subject's AAS.
 """
 from __future__ import annotations
 
@@ -23,6 +27,7 @@ from modplan.expression import parse
 from modplan.vocabulary import Vocabulary
 
 from . import model
+from .execution_form import SELF, UNIT, Execution, Form, property_meaning
 from .profile import (CAPABILITIES, CAPABILITY, SKILLS, SMC, capability_property, component_identity, field_ref, identity, meaning,
                       path)
 
@@ -63,6 +68,16 @@ class Container:
         self.set_name, self.name = set_name, name
         self.properties = dict(properties or {})
         self.constraints: dict[str, model.BasicConstraintContainer] = {}
+        self.form: Form | None = None          # the execution model, if it is written (see `execution_form`)
+
+    def written(self, spec: ModuleSpec | None, own: str | None, skill: str | None, decl: Skill | None, execution: Execution) -> None:
+        """Write what the capability needs and changes in the execution model (`execution_form`), not as a ConstraintSet of the
+        states: a state is no property of the capability then, and no data point is its property's SameProperty."""
+        self.form = Form(self, spec, own, skill, decl, execution)
+
+    def relations(self) -> dict:
+        """The fields of the CapabilityRelations the execution model adds (none in the old form)."""
+        return self.form.finish() if self.form is not None else {}
 
     def at(self, *steps: tuple[str, str]) -> ModelReference:
         return path(CAPABILITIES, (SMC, self.set_name), (SMC, self.name), *steps)
@@ -79,12 +94,21 @@ class Container:
         if name in self.properties:
             return
         self.properties[name] = container
+        if self.form is not None:
+            if field is not None:                                   # one that the module publishes: it is a state of the component too
+                self.form.state(name, SELF, property_meaning(container, name))
+            return
         if field is not None:
             container.SameProperty = {"SameProperty": model.SameAs(
                 first=self.at((SMC, "PropertySet"), (SMC, name), self.value_of(name)), second=field)}
 
-    def state(self, name: str, meant: str, field: ModelReference | None = None) -> None:
-        """A property that is a state: no value of its own; the record field ``field`` if it is one."""
+    def state(self, name: str, meant: str, field: ModelReference | None = None, subject: str = SELF) -> None:
+        """A property that is a state: no value of its own; the record field ``field`` if it is one. In the execution model it is
+        no property of the capability but the property ``meant`` of ``subject`` (SELF, UNIT or an item)."""
+        if self.form is not None:
+            if name not in self.properties:
+                self.form.state(name, subject, meant)
+            return
         kind = XSD.get(vocabulary().value_type(meant) or "number", "xs:double")
         self.add(name, model.StatedProperty(PropertyProperty={"Value": cd.PropertyProperty(
             id_short="Value", value_type=kind, supplemental_semantic_ids=[meaning(meant)], display_name={"en": name})}), field)
@@ -92,6 +116,8 @@ class Container:
     def constrain(self, kind: str, prop: str, expression: str) -> None:
         """A constraint of ``kind`` (Pre, Post, Invariant) about the property ``prop``."""
         named = parse(expression, kind).names                  # of the language, and of its kind
+        if self.form is not None and not self.matching(kind, prop, named):
+            return self.form.constrain(kind, prop, expression)
         for needed in (prop, *named):
             if needed and needed not in self.properties:
                 raise ValueError(f"{self.name}: {kind} {prop} {expression}: it has no property {needed}")
@@ -106,6 +132,12 @@ class Container:
             ConstraintType=cd.ConstraintType(value="BasicConstraint"), PropertyConditionalType=cd.PropertyConditionalType(value=kind),
             ConstraintPropertyRelations=relations)
 
+    def matching(self, kind: str, prop: str, named: tuple[str, ...]) -> bool:
+        """Whether a constraint is about the capability's own properties alone (a requirement for matching, which stays in the
+        ConstraintSet) and not about states, which the execution model states."""
+        plain = lambda n: n in self.properties and n not in self.form.states               # noqa: E731
+        return kind != "Post" and plain(prop) and all(plain(n) for n in named)
+
     def constraint_set(self) -> dict[str, model.ModuleConstraintSet]:
         return {"ConstraintSet": model.ModuleConstraintSet(id_short="ConstraintSet", PropertyConstraintContainer=self.constraints)} \
             if self.constraints else {}
@@ -115,7 +147,7 @@ class Container:
             if self.properties else {}
 
 
-def component_sets(spec: ModuleSpec) -> dict[str, model.ModuleCapabilitySet]:
+def component_sets(spec: ModuleSpec, execution: Execution | None = None) -> dict[str, model.ModuleCapabilitySet]:
     """One CapabilitySet per component, named like it, with the capabilities its primitives realize."""
     sets = {}
     for item in [i for i in spec.equipment if any(d.equipment == i for d in spec.skills.values())]:
@@ -125,16 +157,16 @@ def component_sets(spec: ModuleSpec) -> dict[str, model.ModuleCapabilitySet]:
                 continue
             if cls in containers:
                 raise ValueError(f"{spec.module}: {item} has two skills that realize {cls}")
-            containers[cls] = component_capability(spec, item, name, decl, cls)
+            containers[cls] = component_capability(spec, item, name, decl, cls, execution)
         if containers:
             sets[item] = model.ModuleCapabilitySet(id_short=item, CapabilityContainer=containers)
     return sets
 
 
-def component_descriptions(spec: ModuleSpec) -> dict[str, model.ModuleCapabilityDescription]:
+def component_descriptions(spec: ModuleSpec, execution: Execution | None = None) -> dict[str, model.ModuleCapabilityDescription]:
     """The Capability Description of each component that has capabilities: its set (``component_sets``)."""
     return {item: model.ModuleCapabilityDescription(id_short="CapabilityDescription", CapabilitySet={item: held})
-            for item, held in component_sets(spec).items()}
+            for item, held in component_sets(spec, execution).items()}
 
 
 def realized_in(descriptions: dict[str, model.ModuleCapabilityDescription]) -> dict[str, tuple[str, str, str]]:
@@ -164,9 +196,13 @@ def composition(spec: ModuleSpec, realized: dict[str, tuple[str, str, str]], aas
     return found
 
 
-def component_capability(spec: ModuleSpec, item: str, skill: str, decl: Skill, cls: str) -> model.ModuleCapabilityContainer:
-    """The capability ``cls`` of ``item``, realized by its primitive ``skill``."""
+def component_capability(spec: ModuleSpec, item: str, skill: str, decl: Skill, cls: str,
+                         execution: Execution | None = None) -> model.ModuleCapabilityContainer:
+    """The capability ``cls`` of ``item``, realized by its primitive ``skill``; in the execution model (``execution_form``) if
+    ``execution`` is given."""
     voc, box, use = vocabulary(), Container(item, cls), decl.capability
+    if execution is not None:
+        box.written(spec, item, skill, decl, execution)
     # What it is given: the skill's parameters, as the property of the vocabulary of that name if
     # one describes the capability (a dose is a Volume), else as the parameter means.
     for name, p in decl.parameters.items():
@@ -187,7 +223,7 @@ def component_capability(spec: ModuleSpec, item: str, skill: str, decl: Skill, c
     stated = voc.constraints(cls)
     for s in stated:
         for name in filter(None, (s.prop, *s.expression.names)):
-            box.state(name, name, None if voc.product(name) else state_field(spec, item, name))
+            box.state(name, name, None if voc.product(name) else state_field(spec, item, name), UNIT if voc.product(name) else SELF)
 
     def named(about: str) -> str:
         """The property a condition names: ``<Item>.<meaning>``, the state of an item, becomes the
@@ -197,10 +233,10 @@ def component_capability(spec: ModuleSpec, item: str, skill: str, decl: Skill, c
             point = state_point(spec, other, meant)
             if point is None:
                 raise ValueError(f"{spec.module}.{skill}: {other} publishes no {meant}, so {cls} cannot be about it")
-            box.state(f"{other}{meant}", meant, field_ref(spec, point, identity(spec)[1]))
+            box.state(f"{other}{meant}", meant, field_ref(spec, point, identity(spec)[1]), other)
             return f"{other}{meant}"
         if about not in box.properties and voc.product(about):
-            box.state(about, about)
+            box.state(about, about, None, UNIT)
         return about
     conditions = []
     for kind, about, expression in (use.conditions() if use else ()):
@@ -220,19 +256,24 @@ def component_capability(spec: ModuleSpec, item: str, skill: str, decl: Skill, c
     return model.ModuleCapabilityContainer(
         id_short=cls, Capability=capability, PropertySet=box.property_set(),
         CapabilityRelations=model.ModuleCapabilityRelations(id_short="CapabilityRelations", CapabilityRealizedBy={"RealizedBy": realized},
-                                                            ConstraintSet=box.constraint_set()))
+                                                            ConstraintSet=box.constraint_set(), **box.relations()))
 
 
-def constrain_offer(container: model.ModuleCapabilityContainer, set_name: str, cls: str) -> None:
-    """Add to an offered capability what the vocabulary says it needs and does to the product."""
+def constrain_offer(container: model.ModuleCapabilityContainer, set_name: str, cls: str, execution: Execution | None = None) -> None:
+    """Add to an offered capability what the vocabulary says it needs and does to the product: as constraints, or in the execution
+    model (``execution_form``) if ``execution`` is given."""
     sets = container.PropertySet.get("PropertySet")
     box = Container(set_name, container.id_short, sets.PropertyContainer if sets else {})
+    if execution is not None:
+        box.written(None, None, None, None, execution)
     stated = vocabulary().constraints(cls)
     for s in stated:
         for name in filter(None, (s.prop, *s.expression.names)):
-            box.state(name, name)
+            box.state(name, name, None, UNIT if vocabulary().product(name) else SELF)
     for s in stated:
         box.constrain(s.kind, s.prop, str(s.expression))
     container.PropertySet = box.property_set()
     if box.constraints:
         container.CapabilityRelations.ConstraintSet = box.constraint_set()
+    for field, found in box.relations().items():
+        setattr(container.CapabilityRelations, field, found)

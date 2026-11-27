@@ -69,7 +69,7 @@ from aas_model.submodel_templates.coordinates import (
     CoordinateRelativeTo, CoordinateSource, Coordinates, CoordinatePitch, CoordinateRoll, CoordinateX, CoordinateY,
     CoordinateYaw, CoordinateZ, RelativeCoordinate,
 )
-from aas_model.submodel_templates.variables import LogGroup, MeasurementsGroup, StateGroup
+from aas_model.submodel_templates.variables import LogGroup, MeasurementsGroup, StateGroup, Variables
 from .lab import nameplate
 from .model import Component, Module
 
@@ -340,8 +340,11 @@ class Describer:
     """Collects the interface while the skills and data points are described, then builds the model."""
 
     def __init__(self, spec: ModuleSpec, target: str, snap: Snapshot | None, drift: Drift | None,
-                 spec_path: str | None, opcua: str | None):
+                 spec_path: str | None, opcua: str | None, execution: bool = False):
         self.spec, self.target, self.snap, self.drift, self.spec_path = spec, target, snap, drift, spec_path
+        # Whether what a capability needs and changes is written in the execution model (``execution_form``) instead of as
+        # constraints; ``written`` then holds the declarations its terms make (the Knowledge of the AASs).
+        self.execution, self.written = execution, None
         self.opcua = opcua or f"opc.tcp://{spec.targets[target].host}:4840"
         self.namespace = 1                                      # of the module's nodes on its OPC UA server
         self.actions: dict[str, OpcuaAction] = {}
@@ -842,14 +845,18 @@ class Describer:
         its primitives realize. A capability the spec states that no skill offers is refused."""
         if not self.derive:
             return None, {}
-        from .capabilities import component_descriptions, composition, realized_in   # they build on this module's helpers
+        from .capabilities import component_descriptions, composition, realized_in, vocabulary   # they build on this module's helpers
+        from .execution_form import Execution, posted
         found = offers(self.spec)
         stated = {meaning(name, cap.semantic_id): (name, cap) for name, cap in self.spec.capabilities.items()}
         if unknown := sorted(name for iri, (name, _) in stated.items() if iri not in {o.capability for o in found}):
             raise ValueError(f"{self.spec.module} states the capabilities {unknown}, which none of its skills offers")
-        components = component_descriptions(self.spec)
+        if self.execution:
+            classes = {vocabulary().realized(name) for name in self.spec.skills} | {local(o.capability) for o in found}
+            self.written = Execution(posted(self.spec, classes - {None}), identity(self.spec)[1])
+        components = component_descriptions(self.spec, self.written)
         parts = composition(self.spec, realized_in(components), {item: component_identity(self.spec, item)[1] for item in components})
-        return capability_description(found, stated, parts=parts), components
+        return capability_description(found, stated, parts=parts, execution=self.written), components
 
     def control_configuration(self) -> model.ModuleControlConfiguration:
         snap, drift, t = self.snap, self.drift, self.spec.targets[self.target]
@@ -946,6 +953,11 @@ class Describer:
         asset.capability_description, described = self.capabilities()
         for item, part in parts.items():
             part.capability_description = described.get(item)
+        if self.written is not None:                  # the states the terms are about, declared in the AAS of their subject
+            for item, part in parts.items():
+                if (knowledge := self.written.declared.knowledge(item)) is not None:
+                    part.variables = Variables(id_short="Variables", Knowledge=knowledge)
+            asset.variables.Knowledge = self.written.declared.knowledge(None)
         asset.asset_interfaces_mapping_configuration = self.mappings()
         return [(Module.model_validate(asset.model_dump()), asset_id),
                 *[(Component.model_validate(part.model_dump()), component_identity(spec, item)[2])
@@ -974,7 +986,8 @@ def capability_property(name: str, iri: str, value: CapabilityProperty, derived:
 
 def capability_description(found: list[Offer], stated: dict[str, tuple[str, CapabilitySpec]],
                            named: dict[tuple[str, str], str] | None = None,
-                           parts: dict[str, dict[str, ModelReference]] | None = None) -> model.ModuleCapabilityDescription | None:
+                           parts: dict[str, dict[str, ModelReference]] | None = None,
+                           execution=None) -> model.ModuleCapabilityDescription | None:
     """The capabilities ``found`` (derived from the skills), each with its meaning (marked Derived),
     the properties its skill sets (marked Derived), the facts ``stated`` for its class (meaning ->
     (name, what is stated)), and the skill realizing it (CapabilityRealizedBy, a reference into the
@@ -1034,7 +1047,7 @@ def capability_description(found: list[Offer], stated: dict[str, tuple[str, Capa
             PropertySet={"PropertySet": model.StatedPropertySet(id_short="PropertySet", PropertyContainer=properties)} if properties else {},
             CapabilityRelations=model.ModuleCapabilityRelations(id_short="CapabilityRelations", CapabilityRealizedBy=realized,
                                                                 ComposedOfSet=composed))
-        constrain_offer(containers[id_short], OFFERED_SET, local(offer.capability))
+        constrain_offer(containers[id_short], OFFERED_SET, local(offer.capability), execution)
     if not containers:
         return None
     return model.ModuleCapabilityDescription(id_short="CapabilityDescription", CapabilitySet={
@@ -1067,10 +1080,10 @@ def offers(spec: ModuleSpec) -> list[Offer]:
 
 
 def describe_with_record(spec: ModuleSpec, target: str, snap: Snapshot | None = None, drift: Drift | None = None,
-                         spec_path: str | None = None, opcua: str | None = None) -> tuple[list[dict], dict]:
+                         spec_path: str | None = None, opcua: str | None = None, execution: bool = False) -> tuple[list[dict], dict]:
     """The profiles of the module (the first) and of its components, and the integrator's record of
     what was built (``record``); with a snapshot, values, hashes and the sync state are the running ones."""
-    describer = Describer(spec, target, snap, drift, spec_path, opcua)
+    describer = Describer(spec, target, snap, drift, spec_path, opcua, execution)
     built = describer.build()
     return [model.profile(asset, global_asset_id=asset_id) for asset, asset_id in built], record(describer, built[0][0])
 
@@ -1086,11 +1099,12 @@ def record(describer: Describer, module: Module) -> dict:
 
 
 def describe_all(spec: ModuleSpec, target: str, snap: Snapshot | None = None, drift: Drift | None = None,
-                 spec_path: str | None = None, opcua: str | None = None) -> list[dict]:
+                 spec_path: str | None = None, opcua: str | None = None, execution: bool = False) -> list[dict]:
     """The profiles of the module (the first) and of its components; with a snapshot, values, hashes
-    and the sync state are the running ones."""
+    and the sync state are the running ones. ``execution``: what a capability needs and changes is written in the execution
+    model (docs/execution-model.md), the capability's ConstraintSet keeping only what is for matching."""
     return [model.profile(asset, global_asset_id=asset_id)
-            for asset, asset_id in Describer(spec, target, snap, drift, spec_path, opcua).build()]
+            for asset, asset_id in Describer(spec, target, snap, drift, spec_path, opcua, execution).build()]
 
 
 def describe(spec: ModuleSpec, target: str, snap: Snapshot | None = None, drift: Drift | None = None,
